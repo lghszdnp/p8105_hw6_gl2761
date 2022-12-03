@@ -187,7 +187,7 @@ birthweight_df = birthweight_df %>%
 ### Propose a regression model for birthweight.
 
 ```{r}
-model_1 = lm(bwt ~ ppbmi + delwt, data = birthweight_df) 
+model_1 = lm(bwt ~ ppbmi + delwt + gaweeks + momage + smoken + wtgain, data = birthweight_df) 
 
 model_1 %>% broom::tidy()
 
@@ -212,7 +212,7 @@ Describe modeling process:
 
 1. Firstly, load and clean data;
 
-2. Then I think "mother's weight at delivery (pounds)" and "mother's pre-pregnancy BMI" my influence baby's birth weight, so I use these two variables as the predictors of the model;
+2. Then I think "mother's weight at delivery (pounds)", 'gestational age in weeks', 'mother’s age at delivery', 'average number of cigarettes smoked per day during pregnancy', 'mother’s weight gain during pregnancy (pounds)' and "mother's pre-pregnancy BMI" may influence baby's birth weight, so I use these two variables as the predictors of the model;
 
 3. Then I drew a "Residuals vs Fitted value Plot". From the plot, residual values are bounce around 0, which means they are evenly distributed around 0. Therefore, it is a reasonable model and I keep this model.
 
