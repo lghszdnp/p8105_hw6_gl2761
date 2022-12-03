@@ -117,11 +117,53 @@ baltimore_fit =
   baltimore_df %>% 
   glm(resolved ~ victim_age + victim_race + victim_sex, data = ., family = binomial()) 
 
-baltimore_fit %>%
-  broom::tidy() %>%
-  mutate(OR = exp(estimate)) %>%
-  select(term, log_OR = estimate, OR, p.value) 
+baltimore_fit %>% 
+  broom::tidy(conf.int = T) %>% 
+  mutate(OR = exp(estimate),
+         CI_lower = exp(exp(conf.low)),
+         CI_upper = exp(exp(conf.high)),
+         p_val = rstatix::p_format(p.value, digits = 2)) %>% 
+  select(term, OR, CI_lower,CI_upper, p_val) %>% 
+  knitr::kable(digits = 3, align = "lccc", 
+               col.names = c("Term", "Estimated adjusted OR", "CI lower bound", "CI upper bound", "p-value"))
 ```
+
+For the city of Baltimore, MD, controlling for all other variables, for homicides cases whose victim is male are significantly less like to be resolved than those whose victim is female.
+
+### Analysis for all cities
+
+```{r}
+cities_fit = homicide_df %>% 
+  nest(data = -city_state) %>% 
+  mutate(
+    models = map(data, ~glm(resolved ~ victim_age + victim_race + victim_sex, data = ., family = binomial(link = "logit"))),
+    results = map(models, ~broom::tidy(.x, conf.int = T))) %>% 
+  select(city_state, results) %>% 
+  unnest(results) %>% 
+  mutate(
+    OR = exp(estimate),
+    CI_lower = exp(conf.low),
+    CI_upper = exp(conf.high),
+    p_val = rstatix::p_format(p.value, digits = 2)
+  ) %>% 
+  filter(term == "victim_sexMale") %>% 
+  select(city_state, OR, CI_lower,CI_upper, p_val) 
+
+cities_fit %>% 
+  knitr::kable(digits = 3, align = "llccc", col.names = c("City", "Estimated adjusted OR", "CI lower bound", "CI upper bound", "p-value"))
+```
+
+```{r}
+cities_fit %>% 
+  mutate(city_state = fct_reorder(city_state, OR)) %>%
+  ggplot(aes(x = city_state, y = OR)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = CI_lower, ymax = CI_upper)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(x = "City", y = "Estimated OR with CI")
+```
+
+For most of the cities, the estimated odds ratio is less than 1, and about half of cities have CI that doesn't contain 1, which means for most of the cities, controlling for all other variables, for homicides cases whose victim is male are significantly less like to be resolved than those whose victim is female.
 
 ## Problem 3
 
@@ -170,7 +212,8 @@ Describe modeling process:
 3. Then I drew a "Residuals vs Fitted value Plot". From the plot, residual values are bounce around 0, which means they are evenly distributed around 0. Therefore, it is a reasonable model and I keep this model.
 
 
-#### Compare your model to two others:
+### Compare my model to two others:
+
 ```{r}
 model_2 = lm(bwt ~ blength + gaweeks, data = birthweight_df)
 model_3 = lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex + bhead * blength * babysex, data = birthweight_df)
@@ -193,7 +236,9 @@ cv_df = crossv_mc(birthweight_df, 100) %>%
     names_to = "model", 
     values_to = "rmse",
     names_prefix = "rmse_") %>% 
-  mutate(model = fct_inorder(model)) %>% 
+  mutate(model = fct_inorder(model)) 
+
+cv_df %>% 
   ggplot(aes(x = model, y = rmse)) + 
   geom_violin() +
   labs(title = "RMSEs for Each Model",
