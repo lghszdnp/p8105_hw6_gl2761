@@ -84,3 +84,41 @@ As with $r^2$, this distribution is somewhat skewed and has some outliers.
 The point of this is not to say you should always use the bootstrap -- it's possible to establish "large sample" distributions for strange parameters / values / summaries in a lot of cases, and those are great to have. But it is helpful to know that there's a way to do inference even in tough cases. 
 
 ## Problem 2
+
+Read in and clean data
+
+```{r}
+homicide_df =
+  read.csv("./data_WP/homicide-data.csv", na = c("", "Unknown")) %>% 
+  mutate(
+    city_state = str_c(city, ', ', state),
+    resolved = case_when(
+           disposition =="Closed without arrest" ~ 0,
+           disposition =="Open/No arrest" ~ 0,
+           disposition =="Closed by arrest" ~ 1
+         )) %>% 
+  subset(city_state!="Dallas, TX" & city_state!="Phoenix, AZ" & city_state!="Kansas City, MO" & city_state!="Tulsa, AL") %>%
+  filter(victim_race == "White" | victim_race == "Black") %>%
+  relocate(city_state)
+```
+
+```{r}
+baltimore_df = 
+  homicide_df %>% 
+  filter(city_state == "Baltimore, MD")
+
+baltimore_fit = 
+  baltimore_df %>% 
+  glm(resolved ~ victim_age + victim_race + victim_sex, data = ., family = binomial()) 
+
+baltimore_fit %>%
+  broom::tidy() %>%
+  mutate(OR = exp(estimate)) %>%
+  select(term, log_OR = estimate, OR, p.value) 
+```
+
+## Problem 3
+
+```{r}
+
+```
