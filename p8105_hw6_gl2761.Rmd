@@ -8,6 +8,10 @@ output: github_document
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(viridis)
+library(modelr)
+library(purrr)
+library(patchwork)
+library(broom)
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -85,7 +89,7 @@ The point of this is not to say you should always use the bootstrap -- it's poss
 
 ## Problem 2
 
-Read in and clean data
+### Read in and clean data
 
 ```{r}
 homicide_df =
@@ -101,6 +105,8 @@ homicide_df =
   filter(victim_race == "White" | victim_race == "Black") %>%
   relocate(city_state)
 ```
+
+### Analysis for Baltimore
 
 ```{r}
 baltimore_df = 
@@ -119,6 +125,81 @@ baltimore_fit %>%
 
 ## Problem 3
 
+### Load and clean the data for regression analysis.
 ```{r}
+birthweight_df = read.csv("./birthweight.csv") %>% 
+  janitor::clean_names()
+
+# Check missing value
+sum(is.na(birthweight_df))
+
+birthweight_df = birthweight_df %>% 
+  mutate(
+    babysex = factor(babysex, ordered = FALSE),
+    frace = factor(frace, ordered = FALSE),
+    malform = factor(malform, ordered = FALSE),
+    mrace = factor(mrace, ordered = FALSE)
+  )
+```
+
+### Propose a regression model for birthweight.
+
+```{r}
+model_1 = lm(bwt ~ ppbmi + delwt, data = birthweight_df) 
+
+model_1 %>% broom::tidy()
+
+plot = birthweight_df %>% 
+  add_residuals(model_1) %>% 
+  add_predictions(model_1) %>% 
+  ggplot(aes(x = pred, y = resid)) +
+  geom_point(alpha = 0.5) +
+  geom_abline(slope = 0, intercept = 0, color = "red") +
+  labs(
+    title = "Residuals vs Fitted value Plot",
+    x = "Fitted value",
+    y = "Residuals"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
 
 ```
+
+Describe modeling process:
+1. Firstly, load and clean data;
+2. Then I think "mother's weight at delivery (pounds)" and "mother's pre-pregnancy BMI" my influence baby's birth weight, so I use these two variables as the predictors of the model;
+3. Then I drew a "Residuals vs Fitted value Plot". From the plot, residual values are bounce around 0, which means they are evenly distributed around 0. Therefore, it is a reasonable model and I keep this model.
+
+
+#### Compare your model to two others:
+```{r}
+model_2 = lm(bwt ~ blength + gaweeks, data = birthweight_df)
+model_3 = lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex + bhead * blength * babysex, data = birthweight_df)
+
+cv_df = crossv_mc(birthweight_df, 100) %>% 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble)) %>% 
+  mutate(
+    mod_1 = map(.x = train, ~lm(bwt ~ ppbmi + delwt, data = .x)),
+    mod_2 = map(.x = train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+    mod_3 = map(.x = train, ~lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex + bhead * blength * babysex, data = .x))) %>% 
+  mutate(
+    rmse_1 = map2_dbl(.x = mod_1, .y = test, ~rmse(model = .x, data = .y)),
+    rmse_2 = map2_dbl(.x = mod_2, .y = test, ~rmse(model = .x, data = .y)),
+    rmse_3 = map2_dbl(.x = mod_3, .y = test, ~rmse(model = .x, data = .y))) %>%
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) + 
+  geom_violin() +
+  labs(title = "RMSEs for Each Model",
+       x = "Model",
+       y = "RMSE") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Based on the violin plot, we can find that model 1 has a higher error rate than the other two models and model 3 has the smallest RMSE value. Model 3 is more accurate than model 1 and model 2.
