@@ -228,7 +228,7 @@ cv_df = crossv_mc(birthweight_df, 100) %>%
     train = map(train, as_tibble),
     test = map(test, as_tibble)) %>% 
   mutate(
-    mod_1 = map(.x = train, ~lm(bwt ~ ppbmi + delwt, data = .x)),
+    mod_1 = map(.x = train, ~lm(bwt ~ ppbmi + delwt + gaweeks + momage + smoken + wtgain, data = .x)),
     mod_2 = map(.x = train, ~lm(bwt ~ blength + gaweeks, data = .x)),
     mod_3 = map(.x = train, ~lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex + bhead * blength * babysex, data = .x))) %>% 
   mutate(
